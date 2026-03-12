@@ -1,10 +1,3 @@
-//
-//  stonkwatch_appApp.swift
-//  stonkwatch-app
-//
-//  Created by koalazub on 12/3/2026.
-//
-
 import SwiftUI
 import SwiftData
 
@@ -12,7 +5,9 @@ import SwiftData
 struct stonkwatch_appApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Stock.self,
+            Post.self,
+            ForumThread.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -23,9 +18,28 @@ struct stonkwatch_appApp: App {
         }
     }()
 
+    @State private var appSettings = AppSettings.shared
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            TabView {
+                Tab("Briefing", systemImage: "brain.head.profile") {
+                    LivingBriefingView()
+                }
+                Tab("Discussions", systemImage: "bubble.left.and.text.bubble.right") {
+                    ForumsView()
+                }
+                Tab("Sentiment", systemImage: "chart.line.uptrend.xyaxis") {
+                    SentimentView()
+                }
+                Tab("Watchlist", systemImage: "star") {
+                    WatchlistView()
+                }
+                Tab("Settings", systemImage: "gearshape") {
+                    SettingsView()
+                }
+            }
+            .preferredColorScheme(appSettings.colorScheme)
         }
         .modelContainer(sharedModelContainer)
     }

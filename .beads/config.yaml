@@ -1,0 +1,11 @@
+# Beads Configuration for stonkwatch-app
+issue_prefix: stonkwatch-app
+sync.branch: main
+
+# Compaction settings
+compaction_enabled: false
+compact_tier1_days: 30
+compact_tier2_days: 90
+compact_model: claude-3-5-haiku-20241022
+compact_batch_size: 50
+auto_compact_enabled: false

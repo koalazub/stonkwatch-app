@@ -1,0 +1,41 @@
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+IDEWorkspaceChecks.plist
+
+# Build products
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# CocoaPods (should not be used, but just in case)
+Pods/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# OS files
+.DS_Store
+*.swp
+*~
+
+# Secrets / environment
+.env
+.env.*
+*.xcconfig.local
+
+# Nix
+result
+result-*
