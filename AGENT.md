@@ -154,3 +154,5 @@ Or open `stonkwatch-app.xcodeproj` in Xcode and hit Cmd+R.
 - Do not use `ObservableObject`, `@Published`, `@StateObject`, or `@ObservedObject` — use `@Observable` and `@State` instead.
 - Do not use `XCTest` / `XCTAssert` for new tests — use Swift Testing (`@Test`, `#expect`).
 - Do not install `swiftformat` or `swift-format` separately — `swift format` is built into the toolchain.
+- **CRITICAL**: Use Turso DB (successor to libSQL) for backend database — NOT libSQL client. Turso DB is non-negotiable.
+- UI must implement Liquid Glass + Neumorphic hybrid theme (translucent glass materials with soft 3D neumorphic shadows)
