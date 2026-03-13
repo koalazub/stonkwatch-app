@@ -156,3 +156,4 @@ Or open `stonkwatch-app.xcodeproj` in Xcode and hit Cmd+R.
 - Do not install `swiftformat` or `swift-format` separately — `swift format` is built into the toolchain.
 - **CRITICAL**: Use Turso DB (successor to libSQL) for backend database — NOT libSQL client. Turso DB is non-negotiable.
 - UI must implement Liquid Glass + Neumorphic hybrid theme (translucent glass materials with soft 3D neumorphic shadows)
+- **Commit Messages**: All jj commits must use good prose — clear, descriptive explanations of what changed and why. Avoid terse messages like "fix bug" or "update file". Instead write "Resolve race condition in watchlist sync by serializing database access through dedicated actor".
