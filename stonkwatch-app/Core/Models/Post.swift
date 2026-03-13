@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class Post: @unchecked Sendable {
+final class Post {
     @Attribute(.unique) var id: String
     var authorName: String
     var content: String

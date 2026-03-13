@@ -11,7 +11,6 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
-        # The Swift version we target — change this to update the whole team
         swiftVersion = "6.3-snapshot";
       in
       {
@@ -19,25 +18,15 @@
           name = "stonkwatch-app";
 
           packages = with pkgs; [
-            # Linting (swift format ships with the Swift toolchain via Swiftly)
             swiftlint
-
-            # Build output formatting
             xcbeautify
-
-            # API debugging
             jq
             grpcurl
-
-            # Git & GitHub
             gh
-
-            # Search
             ripgrep
             fd
-
-            # Turso CLI for database management
             turso-cli
+            nushell
           ];
 
           shellHook = ''
@@ -46,7 +35,6 @@
             SWIFTLY_ENV="$SWIFTLY_HOME/env.sh"
             SWIFT_VERSION="${swiftVersion}"
 
-            # --- 1. Install Swiftly if missing ---
             if [ ! -x "$SWIFTLY_BIN" ]; then
               echo ""
               echo "  Swiftly not found — installing..."
@@ -58,17 +46,14 @@
               echo "  Swiftly installed."
             fi
 
-            # --- 2. Source Swiftly env (puts swiftly + active toolchain on PATH) ---
             if [ -f "$SWIFTLY_ENV" ]; then
               . "$SWIFTLY_ENV"
             fi
 
-            # --- 3. Install the target Swift version if not present ---
             if ! swiftly list 2>/dev/null | grep -q "$SWIFT_VERSION"; then
               echo "  Swift $SWIFT_VERSION not found — installing via Swiftly..."
               swiftly install "$SWIFT_VERSION" --post-install-file=/dev/null 2>/dev/null
               swiftly use "$SWIFT_VERSION" 2>/dev/null
-              # Re-source env to pick up the new toolchain
               . "$SWIFTLY_ENV"
               echo "  Swift $SWIFT_VERSION installed."
             fi
@@ -80,10 +65,12 @@
             echo "  swift format: $(swift format --version 2>/dev/null || echo 'n/a')"
             echo "  SwiftLint:    $(swiftlint version 2>/dev/null)"
             echo "  Turso CLI:    $(turso --version 2>/dev/null || echo 'not installed')"
+            echo "  Nushell:      $(nu --version 2>/dev/null || echo 'not installed')"
             echo ""
+
+            exec nu
           '';
 
-          # Use the system Xcode toolchain — Nix cannot provide Xcode
           DEVELOPER_DIR = "/Applications/Xcode.app/Contents/Developer";
         };
       });

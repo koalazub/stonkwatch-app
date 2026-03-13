@@ -117,17 +117,13 @@ actor TursoAuth {
     
     /// Refresh access token using refresh token
     func refreshAccessToken() async throws -> String {
-        guard let refreshToken = try? await getRefreshToken() else {
+        guard let _ = try? await getRefreshToken() else {
             throw TursoAuthError.noRefreshToken
         }
         
-        // TODO: Call StonkWatch refresh endpoint
-        // POST /auth/refresh with refresh token
-        // Receive new access token
-        
         throw TursoAuthError.notImplemented
     }
-    
+
     private func getRefreshToken() async throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
