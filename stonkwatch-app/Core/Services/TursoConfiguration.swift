@@ -21,15 +21,18 @@ struct TursoConfiguration {
     /// Priority tables that sync first
     let priorityTables: [String]
     
-    static let `default` = TursoConfiguration(
-        databaseURL: ProcessInfo.processInfo.environment["TURSO_DATABASE_URL"] ?? "",
-        authToken: ProcessInfo.processInfo.environment["TURSO_AUTH_TOKEN"] ?? "",
+    /// StonkWatch production configuration
+    static let stonkwatch = TursoConfiguration(
+        databaseURL: "libsql://stonkwatch-koalazub.aws-ap-northeast-1.turso.io",
+        authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJleHAiOjE3Nzg1NTMzMzIsImdpZCI6IjBlYmY0NmZkLTNlMDYtNGE5MS05Njg1LTgzMTdkZmNiNzljNyIsImlhdCI6MTc3MzM2OTMzMiwicmlkIjoiMjQwNzY2MDctODk5Yy00NDg2LWI4ODctNzZjYjJkNTdlMWFiIn0.dUociwys7TqTOTp9q2y3WHG0EJ0cNFanlofVfBnfLuFpaMf6EIibSX5n3-cG3prGsS7Psnvc-6oR_6C3CN1kCg",
         localReplicaPath: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("turso_replica.db"),
+            .appendingPathComponent("stonkwatch_replica.db"),
         syncInterval: 300, // 5 minutes
         enableOfflineMode: true,
-        priorityTables: ["user_watchlist", "user_preferences", "stocks"]
+        priorityTables: ["user_watchlist", "user_preferences", "stocks", "discussion_threads"]
     )
+    
+    static let `default` = stonkwatch
     
     /// Validate configuration
     var isValid: Bool {

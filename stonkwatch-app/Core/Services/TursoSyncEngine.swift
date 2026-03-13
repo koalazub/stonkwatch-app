@@ -11,6 +11,7 @@ actor TursoSyncEngine {
     private var connectionState: TursoConnectionState = .disconnected
     private var syncTimer: Timer?
     private var lastSyncTimes: [String: Date] = [:]
+    private var client: TursoClient?
     
     // MARK: - Callbacks
     
@@ -35,22 +36,20 @@ actor TursoSyncEngine {
         await updateState(.connecting)
         
         do {
-            // TODO: Initialize turso-db client with embedded replica
-            // This would use the turso-db Swift SDK:
-            //
-            // let client = try await TursoClient(
-            //     url: configuration.databaseURL,
-            //     authToken: configuration.authToken,
-            //     localPath: configuration.localReplicaPath
-            // )
-            //
-            // if configuration.enableOfflineMode {
-            //     try await client.enableSync()
-            // }
+            // Initialize turso-db client with embedded replica
+            let client = try await TursoClient(
+                url: configuration.databaseURL,
+                authToken: configuration.authToken
+            )
             
-            // Simulate connection delay
-            try await Task.sleep(nanoseconds: 500_000_000)
+            if configuration.enableOfflineMode {
+                try await client.enableSync(
+                    localPath: configuration.localReplicaPath.path,
+                    syncInterval: configuration.syncInterval
+                )
+            }
             
+            self.client = client
             await updateState(.connected(lastSync: nil))
             
             // Start periodic sync
@@ -66,6 +65,7 @@ actor TursoSyncEngine {
     func disconnect() {
         syncTimer?.invalidate()
         syncTimer = nil
+        client = nil
         Task {
             await updateState(.disconnected)
         }
@@ -88,7 +88,7 @@ actor TursoSyncEngine {
     
     /// Perform immediate sync with Turso cloud
     func sync(mode: TursoSyncMode = .bidirectional) async throws -> [String: Int] {
-        guard await isConnected else {
+        guard let client = client else {
             throw TursoSyncError.replicaNotInitialized
         }
         
@@ -123,21 +123,18 @@ actor TursoSyncEngine {
     
     /// Sync a specific table
     private func syncTable(_ table: String, mode: TursoSyncMode) async throws -> Int {
-        // TODO: Implement actual Turso sync
-        // This would use the turso-db SDK:
-        //
-        // switch mode {
-        // case .bidirectional:
-        //     return try await client.sync(table: table)
-        // case .downloadOnly:
-        //     return try await client.downloadChanges(table: table)
-        // case .uploadOnly:
-        //     return try await client.uploadChanges(table: table)
-        // }
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
         
-        // Simulate sync
-        try await Task.sleep(nanoseconds: 100_000_000)
-        return Int.random(in: 0...10)
+        switch mode {
+        case .bidirectional:
+            return try await client.syncTable(table)
+        case .downloadOnly:
+            return try await client.downloadChanges(table: table)
+        case .uploadOnly:
+            return try await client.uploadChanges(table: table)
+        }
     }
     
     /// Force immediate sync (can be called from UI)
@@ -149,23 +146,42 @@ actor TursoSyncEngine {
     
     /// Fetch user's watchlist from local replica
     func fetchWatchlist(userId: String) async throws -> [TursoWatchlistEntry] {
-        // TODO: Query local replica
-        // let results = try await client.query(
-        //     "SELECT * FROM user_watchlist WHERE user_id = ?",
-        //     parameters: [userId]
-        // )
-        // return results.map { try $0.decode(TursoWatchlistEntry.self) }
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
         
-        return [] // Placeholder
+        let results = try await client.query(
+            """
+            SELECT id, user_id, symbol, added_at, notifications_enabled, 
+                   alert_price_high, alert_price_low
+            FROM user_watchlist 
+            WHERE user_id = ?
+            ORDER BY added_at DESC
+            """,
+            parameters: [userId]
+        )
+        
+        return try results.map { row in
+            try row.decode(TursoWatchlistEntry.self)
+        }
     }
     
     /// Add stock to watchlist
     func addToWatchlist(userId: String, symbol: String) async throws {
-        // TODO: Insert into local replica, sync to cloud
-        // try await client.execute(
-        //     "INSERT INTO user_watchlist (id, user_id, symbol, added_at) VALUES (?, ?, ?, ?)",
-        //     parameters: [UUID().uuidString, userId, symbol, Date()]
-        // )
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        let id = UUID().uuidString
+        let now = Date()
+        
+        try await client.execute(
+            """
+            INSERT INTO user_watchlist (id, user_id, symbol, added_at, notifications_enabled)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            parameters: [id, userId, symbol, now, true]
+        )
         
         // Trigger sync for immediate update
         Task {
@@ -175,11 +191,17 @@ actor TursoSyncEngine {
     
     /// Remove stock from watchlist
     func removeFromWatchlist(userId: String, symbol: String) async throws {
-        // TODO: Delete from local replica, sync to cloud
-        // try await client.execute(
-        //     "DELETE FROM user_watchlist WHERE user_id = ? AND symbol = ?",
-        //     parameters: [userId, symbol]
-        // )
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        try await client.execute(
+            """
+            DELETE FROM user_watchlist 
+            WHERE user_id = ? AND symbol = ?
+            """,
+            parameters: [userId, symbol]
+        )
         
         Task {
             try? await sync(mode: .uploadOnly)
@@ -188,13 +210,54 @@ actor TursoSyncEngine {
     
     /// Fetch user preferences
     func fetchUserPreferences(userId: String) async throws -> TursoUserPreferences? {
-        // TODO: Query local replica
-        return nil
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        let results = try await client.query(
+            """
+            SELECT user_id, theme, notifications_enabled, digest_frequency,
+                   ai_summary_length, default_timeframe, updated_at
+            FROM user_preferences 
+            WHERE user_id = ?
+            """,
+            parameters: [userId]
+        )
+        
+        return try results.first?.decode(TursoUserPreferences.self)
     }
     
     /// Update user preferences
     func updateUserPreferences(_ preferences: TursoUserPreferences) async throws {
-        // TODO: Update local replica, sync to cloud
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        try await client.execute(
+            """
+            INSERT INTO user_preferences (user_id, theme, notifications_enabled, 
+                                         digest_frequency, ai_summary_length, 
+                                         default_timeframe, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                theme = excluded.theme,
+                notifications_enabled = excluded.notifications_enabled,
+                digest_frequency = excluded.digest_frequency,
+                ai_summary_length = excluded.ai_summary_length,
+                default_timeframe = excluded.default_timeframe,
+                updated_at = excluded.updated_at
+            """,
+            parameters: [
+                preferences.userId,
+                preferences.theme,
+                preferences.notificationsEnabled,
+                preferences.digestFrequency,
+                preferences.aiSummaryLength,
+                preferences.defaultTimeframe,
+                preferences.updatedAt
+            ]
+        )
+        
         Task {
             try? await sync(mode: .uploadOnly)
         }
@@ -202,32 +265,128 @@ actor TursoSyncEngine {
     
     /// Fetch stocks
     func fetchStocks() async throws -> [TursoStock] {
-        // TODO: Query local replica
-        return []
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        let results = try await client.query(
+            """
+            SELECT id, symbol, company_name, sector, market_cap, exchange, 
+                   is_active, last_updated
+            FROM stocks 
+            WHERE is_active = true
+            ORDER BY symbol
+            """
+        )
+        
+        return try results.map { row in
+            try row.decode(TursoStock.self)
+        }
     }
     
     /// Fetch discussion threads
     func fetchDiscussionThreads(symbol: String? = nil, limit: Int = 50) async throws -> [TursoDiscussionThread] {
-        // TODO: Query local replica
-        return []
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        let query: String
+        let parameters: [Any]
+        
+        if let symbol = symbol {
+            query = """
+                SELECT id, title, symbol, thread_type, author_id, author_username,
+                       created_at, reply_count, is_pinned, is_locked, 
+                       latest_message_preview, ai_summary
+                FROM discussion_threads 
+                WHERE symbol = ? AND is_locked = false
+                ORDER BY is_pinned DESC, created_at DESC
+                LIMIT ?
+                """
+            parameters = [symbol, limit]
+        } else {
+            query = """
+                SELECT id, title, symbol, thread_type, author_id, author_username,
+                       created_at, reply_count, is_pinned, is_locked,
+                       latest_message_preview, ai_summary
+                FROM discussion_threads 
+                WHERE is_locked = false
+                ORDER BY is_pinned DESC, created_at DESC
+                LIMIT ?
+                """
+            parameters = [limit]
+        }
+        
+        let results = try await client.query(query, parameters: parameters)
+        
+        return try results.map { row in
+            try row.decode(TursoDiscussionThread.self)
+        }
     }
     
     /// Fetch sentiment scores
     func fetchSentimentScores(ticker: String, timeframe: String = "24h") async throws -> [TursoSentimentScore] {
-        // TODO: Query local replica
-        return []
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        let results = try await client.query(
+            """
+            SELECT ticker, score, confidence, post_count, timeframe, calculated_at
+            FROM ticker_sentiments 
+            WHERE ticker = ? AND timeframe = ?
+            ORDER BY calculated_at DESC
+            LIMIT 100
+            """,
+            parameters: [ticker, timeframe]
+        )
+        
+        return try results.map { row in
+            try row.decode(TursoSentimentScore.self)
+        }
     }
     
     /// Fetch AI summaries
     func fetchAISummaries(ticker: String) async throws -> [TursoAISummary] {
-        // TODO: Query local replica
-        return []
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        let results = try await client.query(
+            """
+            SELECT id, ticker, summary, key_points, sentiment, confidence,
+                   source_count, generated_at, expires_at
+            FROM ai_summaries 
+            WHERE ticker = ?
+            AND (expires_at IS NULL OR expires_at > datetime('now'))
+            ORDER BY generated_at DESC
+            LIMIT 10
+            """,
+            parameters: [ticker]
+        )
+        
+        return try results.map { row in
+            try row.decode(TursoAISummary.self)
+        }
     }
     
     /// Fetch user subscription info
     func fetchUserSubscription(userId: String) async throws -> TursoUserSubscription? {
-        // TODO: Query local replica
-        return nil
+        guard let client = client else {
+            throw TursoSyncError.replicaNotInitialized
+        }
+        
+        let results = try await client.query(
+            """
+            SELECT user_id, tier, status, current_period_start, current_period_end,
+                   ai_summaries_remaining, ai_summaries_quota
+            FROM user_subscriptions 
+            WHERE user_id = ?
+            """,
+            parameters: [userId]
+        )
+        
+        return try results.first?.decode(TursoUserSubscription.self)
     }
     
     // MARK: - Private Methods
@@ -263,6 +422,25 @@ actor TursoSyncEngine {
         }
         return Date().timeIntervalSince(lastSync)
     }
+}
+
+// MARK: - Turso Client Protocol (Placeholder for actual SDK)
+
+/// Protocol defining the Turso client interface
+/// This will be replaced by the actual turso-db SDK when available
+protocol TursoClient {
+    init(url: String, authToken: String) async throws
+    func enableSync(localPath: String, syncInterval: TimeInterval) async throws
+    func syncTable(_ table: String) async throws -> Int
+    func downloadChanges(table: String) async throws -> Int
+    func uploadChanges(table: String) async throws -> Int
+    func query(_ sql: String, parameters: [Any]) async throws -> [TursoRow]
+    func execute(_ sql: String, parameters: [Any]) async throws
+}
+
+/// Protocol for query results
+protocol TursoRow {
+    func decode<T: Decodable>(_ type: T.Type) throws -> T
 }
 
 // MARK: - Convenience Extensions

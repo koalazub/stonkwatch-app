@@ -35,6 +35,9 @@
             # Search
             ripgrep
             fd
+
+            # Turso CLI for database management
+            turso-cli
           ];
 
           shellHook = ''
@@ -76,6 +79,7 @@
             echo "  Xcode:        $(xcodebuild -version 2>/dev/null | head -1 || echo 'not installed')"
             echo "  swift format: $(swift format --version 2>/dev/null || echo 'n/a')"
             echo "  SwiftLint:    $(swiftlint version 2>/dev/null)"
+            echo "  Turso CLI:    $(turso --version 2>/dev/null || echo 'not installed')"
             echo ""
           '';
 
