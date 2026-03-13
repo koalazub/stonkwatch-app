@@ -9,8 +9,12 @@ struct SettingsView: View {
     @State private var isDownloading = false
     @State private var currentTier: SummarizationTier = .auto
     @State private var coreMLDownloaded: Bool = false
-    
+    @State private var isSyncing = false
+    @State private var syncStatusText = "Not connected"
+    @State private var lastSyncText = "Never"
+
     private let summarizationService = SummarizationService.shared
+    private let turso = TursoSyncEngine.shared
     
     var body: some View {
         NavigationStack {
@@ -106,6 +110,56 @@ struct SettingsView: View {
                     Label("Connected Accounts", systemImage: "link")
                 }
                 
+                // MARK: - Sync Section
+                Section {
+                    HStack {
+                        Image(systemName: syncIcon)
+                            .foregroundStyle(syncColor)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Turso Sync")
+                                .font(.body)
+                            Text(syncStatusText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if isSyncing {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                    }
+
+                    HStack {
+                        Image(systemName: "clock")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24)
+                        Text("Last sync")
+                        Spacer()
+                        Text(lastSyncText)
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+
+                    Button(action: performManualSync) {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 24)
+                            Text("Sync Now")
+                        }
+                    }
+                    .disabled(isSyncing)
+                } header: {
+                    Text("Data Sync")
+                } footer: {
+                    Text("Syncs your watchlist and preferences with StonkWatch every 5 minutes.")
+                        .font(.caption)
+                }
+                .task {
+                    await refreshSyncStatus()
+                }
+
                 // MARK: - About Section
                 Section("About") {
                     Label("Version 1.0", systemImage: "info.circle")
@@ -151,6 +205,52 @@ struct SettingsView: View {
         }
     }
     
+    private var syncIcon: String {
+        if isSyncing { return "arrow.clockwise" }
+        if syncStatusText.contains("Connected") { return "checkmark.icloud.fill" }
+        return "xmark.icloud"
+    }
+
+    private var syncColor: Color {
+        if isSyncing { return .blue }
+        if syncStatusText.contains("Connected") { return .green }
+        return .secondary
+    }
+
+    private func refreshSyncStatus() async {
+        let state = await turso.getConnectionState()
+        switch state {
+        case .connected(let lastSync):
+            syncStatusText = "Connected"
+            if let lastSync {
+                let formatter = RelativeDateTimeFormatter()
+                formatter.unitsStyle = .abbreviated
+                lastSyncText = formatter.localizedString(for: lastSync, relativeTo: Date())
+            } else {
+                lastSyncText = "Not yet synced"
+            }
+        case .syncing:
+            syncStatusText = "Syncing..."
+        case .connecting:
+            syncStatusText = "Connecting..."
+        case .disconnected:
+            syncStatusText = "Disconnected"
+        case .error:
+            syncStatusText = "Sync error"
+        }
+    }
+
+    private func performManualSync() {
+        isSyncing = true
+        Task {
+            do {
+                _ = try await turso.forceSync()
+            } catch {}
+            await refreshSyncStatus()
+            isSyncing = false
+        }
+    }
+
     private func downloadModel() {
         isDownloading = true
         downloadProgress = 0

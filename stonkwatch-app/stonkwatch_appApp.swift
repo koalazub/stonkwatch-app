@@ -19,7 +19,7 @@ struct stonkwatch_appApp: App {
     }()
 
     @State private var appSettings = AppSettings.shared
-    
+
     var body: some Scene {
         WindowGroup {
             TabView {
@@ -40,6 +40,9 @@ struct stonkwatch_appApp: App {
                 }
             }
             .preferredColorScheme(appSettings.colorScheme)
+            .task {
+                try? await TursoSyncEngine.shared.connect()
+            }
         }
         .modelContainer(sharedModelContainer)
     }

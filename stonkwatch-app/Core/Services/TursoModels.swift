@@ -189,7 +189,7 @@ struct TursoUserSubscription: Codable, Sendable {
 struct TursoSyncBatch: Sendable {
     let table: String
     let operation: SyncOperation
-    let records: [Codable & Sendable]
+    let records: [any Codable & Sendable]
     let timestamp: Date
 }
 

@@ -632,23 +632,4 @@
 /* End XCConfigurationList section */
 	};
 	rootObject = 71B3E13E2F62C5B5007F32E8 /* Project object */;
-/* Begin XCRemoteSwiftPackageReference section */
-		1E6FEBC630E75E8D9203A217 /* XCRemoteSwiftPackageReference "turso-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/turso-db/turso-swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		77928AD25AA8BD1E4BC71740 /* turso-db */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 1E6FEBC630E75E8D9203A217 /* XCRemoteSwiftPackageReference "turso-swift" */;
-			productName = "turso-db";
-		};
-/* End XCSwiftPackageProductDependency section */
-
 }
